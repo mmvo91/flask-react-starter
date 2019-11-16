@@ -12,15 +12,17 @@ from api.extensions import bcrypt, sql
 
 class Users(Resource):
     def post(self):
-        data = request.get_json()['user']
+        data = request.json
+        username = data['username']
+        password = data['password']
 
-        current = User.query.filter_by(username=data['username']).first()
+        current = models.User.query.filter_by(username=username).first()
         if current is not None:
             return {'msg': f'Username {current.username} is already taken. Please try another name'}
         else:
-            hashed = bcrypt.generate_password_hash(data['password'])
+            hashed = bcrypt.generate_password_hash(password)
             new = User(
-                username=data['username'],
+                username=username,
                 password=hashed.decode('utf-8'),
                 email=data['email']
             )
@@ -40,25 +42,26 @@ class User(Resource):
         return schema.dump(user)
 
     def post(self):
-        data = request.get_json()['user']
+        data = request.json
+        username = data['username']
+        password = data['password']
 
-        current = User.query.filter_by(username=data['username']).first()
+        current = models.User.query.filter_by(username=username).first()
         if current is not None:
             if not current.active:
-                return {'message': "Account not activated. Please contact administrator to activate."}
+                return {'msg': "Account not activated. Please contact administrator to activate."}
         else:
-            return {'message': "Wrong credentials"}
+            return {'msg': "Wrong credentials"}
 
-        if bcrypt.check_password_hash(current.password, data['password']):
-            access_token = create_access_token(identity=data['username'])
-            refresh_token = create_refresh_token(identity=data['username'])
+        if bcrypt.check_password_hash(current.password, password):
+            access_token = create_access_token(identity=current.id)
+            refresh_token = create_refresh_token(identity=current.id)
 
             current.last_login = datetime.datetime.now()
 
             response = {
-                'message': f"Logged in as {current.username}",
-                'access_token': f'{access_token}',
-                'refresh_token': f'{refresh_token}'
+                'id': current.id,
+                'msg': f"Logged in as {current.username}",
             }
 
             response = jsonify(response)
@@ -70,4 +73,4 @@ class User(Resource):
 
             return response
         else:
-            return {'message': 'Wrong credentials'}
+            return {'msg': 'Wrong credentials'}
